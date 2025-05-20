@@ -1,0 +1,122 @@
+# playbook_instalar_servicios.yml
+- name: Instalación de servicios en hosts Linux y Windows  
+  hosts: all  
+  gather_facts: yes  
+
+  collections:
+    - ansible.windows
+
+  tasks:
+
+    #################################################################
+    # Bloque para hosts Linux (familia Debian, RedHat, etc.)        #
+    #################################################################
+    - name: Instalación de servicios en Linux
+      when: ansible_os_family != "Windows"
+      block:
+
+        - name: Instalar Nginx
+          apt:
+            name: nginx
+            state: latest
+          become: true
+
+        - name: Asegurar que Nginx esté iniciado
+          service:
+            name: nginx
+            state: started
+            enabled: true
+          become: true
+
+        - name: Instalar Git
+          apt:
+            name: git
+            state: present
+          become: true
+
+        - name: Instalar Docker CE
+          apt:
+            name: docker.io
+            state: latest
+          become: true
+
+        - name: Instalar MySQL Server
+          apt:
+            name: mysql-server
+            state: present
+          become: true
+
+        - name: Instalar Vim
+          apt:
+            name: vim
+            state: present
+          become: true
+
+        - name: Instalar UFW (firewall)
+          apt:
+            name: ufw
+            state: present
+          become: true
+
+        - name: Habilitar UFW y permitir SSH
+          ufw:
+            rule: allow
+            name: OpenSSH
+          become: true
+
+    #################################################################
+    # Bloque para hosts Windows                                      #
+    #################################################################
+    - name: Instalación de servicios en Windows
+      when: ansible_os_family == "Windows"
+      vars:
+        chocolatey_packages:
+          - git
+          - 7zip
+          - notepadplusplus
+          - docker-desktop
+          - sql-server-express
+      block:
+
+        - name: Instalar IIS (Internet Information Services)
+          win_shell: |
+            dism.exe /Online /Enable-Feature /FeatureName:IIS-WebServer /All /NoRestart
+          register: iis_install_result
+          ignore_errors: yes
+
+        - name: Asegurar que el servicio W3SVC (IIS) esté iniciado
+          win_service:
+            name: W3SVC
+            state: started
+            start_mode: auto
+          when: iis_install_result.rc == 0
+
+        - name: Instalar paquetes vía Chocolatey
+          win_chocolatey:
+            name: "{{ item }}"
+            state: present
+          loop: "{{ chocolatey_packages }}"
+
+        - name: Iniciar el servicio de Docker Desktop (si aplica)
+          win_service:
+            name: com.docker.service
+            state: started
+            start_mode: auto
+          when: "'docker-desktop' in chocolatey_packages"
+
+        - name: Asegurar que SQL Server Express esté iniciado
+          win_service:
+            name: MSSQL$SQLEXPRESS
+            state: started
+            start_mode: auto
+          when: "'sql-server-express' in chocolatey_packages"
+
+        - name: Crear carpeta base para contenido web en IIS
+          win_file:
+            path: C:\inetpub\wwwroot
+            state: directory
+
+        - name: Copiar página de bienvenida a IIS
+          win_copy:
+            src: files/index.html
+            dest: C:\inetpub\wwwroot\index.html
