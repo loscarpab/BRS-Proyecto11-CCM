@@ -1,0 +1,13 @@
+name: ansible_verification
+title: Verificación de ansible
+maintainer: Carlos Cordero
+copyright: Carlos Cordero
+copyright_email: ccormor392@g.educaand.es
+license: Apache-2.0
+summary: Un perfil de cinc-auditor que comprueba que toda la instalación hecha con ansible se ha realizado correctamente
+version: 1.0.0
+supports:
+  - platform-family: windows
+    release: 10
+  - platform-name: ubuntu
+    release: 22.04
